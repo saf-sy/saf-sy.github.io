@@ -122,7 +122,7 @@ ctx.fillStyle = WHITE;
 }
 
 // Helper function to check for win
-function checkForWin(cells) {
+
 // Check rows
 for (let i = 0; i < 5; i++) {
 if (cells[i].every(cell => cell[4])) {
@@ -171,7 +171,7 @@ if (crossedOutCount === 5) {
 return false;
 
 }
-}
+
 
 // Call function to create Bingo board for Ethan and Aidan
 createBingoBoard(ethan);
