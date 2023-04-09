@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Google Photos Swiper</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    #photo {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
+</head>
+<body>
+  <img id="photo" src="">
+  <script src="https://apis.google.com/js/api.js"></script>
+  <script>
+    // Replace YOUR_CLIENT_ID with the actual client ID from the Google Cloud Console
+     // Replace YOUR_CLIENT_ID with the actual client ID from the Google Cloud Console
+     const CLIENT_ID = '434744204252-n674iipnb28q4e6b0v3ukcncm6h097v8.apps.googleusercontent.com';
+
+     // Authorization scopes required by the application
+     const SCOPES = ['https://www.googleapis.com/auth/photoslibrary'];
+ 
+     // Load the Google API client library
+     gapi.load('client:auth2', function() {
+       // Initialize the Google API client with the client ID and authorization scopes
+       gapi.client.init({
+         clientId: CLIENT_ID,
+         scope: SCOPES.join(' ')
+       }).then(function() {
+         // Authorize the user and get an access token
+         gapi.auth2.getAuthInstance().signIn().then(function() {
+           const accessToken = gapi.auth2.getAuthInstance().currentUser.get().getAuthResponse().access_token;
+           startSwiping(accessToken);
+         });
+       }, function(error) {
+         console.error(error);
+       });
+     });
+
+    function startSwiping(accessToken) {
+      // Fetch the user's photos
+      fetch('https://photoslibrary.googleapis.com/v1/mediaItems', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`
+        }
+      }).then(function(response) {
+        return response.json();
+      }).then(function(data) {
+        // Display the first photo
+        const photo = data.mediaItems[0];
+        document.getElementById('photo').src = photo.baseUrl;
+
+        // Add event listeners for swiping left and right
+        let xDown = null;
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, false);
+
+        function handleTouchStart(evt) {
+          xDown = evt.touches[0].clientX;
+        }
+
+        function handleTouchMove(evt) {
+          if (!xDown) {
+            return;
+          }
+
+          const xDiff = xDown - evt.touches[0].clientX;
+          if (xDiff > 0) {
+            // Swipe left to delete
+            deletePhoto(photo, accessToken);
+          } else {
+            // Swipe right to keep
+            keepPhoto(photo, accessToken);
+          }
+
+          /* reset values */
+          xDown = null;
+        }
+      });
+    }
+
+    function deletePhoto(photo, accessToken) {
+      // Delete the photo
+      fetch('https://photoslibrary.googleapis.com/v1/mediaItems:batchDelete', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          mediaItemIds: [photo.id]
+        })
+      }).then(function(response) {
+        // Display the next photo
+        const nextPhoto = response.mediaItems[1];
+        document.getElementById('photo').src = nextPhoto.baseUrl;
+      }, function(error) {
+        console.error(error);
+      });
+    }
+
+    function keepPhoto(photo, accessToken) {
+      // Label the photo as "Kept"
+      fetch(`https://photoslibrary.googleapis.com/v1/mediaItems/${photo.id}:batchUpdate`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          updateMask: 'includedFields,labels',
+          includedFields: ['labels'],
+          albumId: '',
+          mediaItems: [{
+            id: photo.id,
+            labels: {
+              contentCategory: {
+                type: 'REMOVAL_CONFIRMED'
+              }
+            }
+          }]
+        })
+      }).then(function(response) {
+        // Display the next photo
+        const nextPhoto = response.mediaItems[1];
+        document.getElementById('photo').src = nextPhoto.baseUrl;
+      }, function(error) {
+        console.error(error);
+      });
+    }
+  </script>
+</body>
+</html>
